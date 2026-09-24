@@ -10,6 +10,7 @@ import {
   nextDomId
 } from "./FlashcardParser";
 import { DEFAULT_SCHEDULER, previewSchedules, type ScheduleResult, type SchedulerSettings } from "./scheduler";
+import { formatInterval } from "./format";
 import { shuffleInPlace } from "./queue";
 import type { Flashcard, FsrsState, Rating, ReviewInfo, UndoFn } from "./types";
 
@@ -215,18 +216,20 @@ export class ReviewModal extends Modal {
     ];
     const relearnStep = this.relearning.has(card.id);
     const buttons = defs.map((def) => {
-      let label: string;
+      let intervalText: string;
       if (relearnStep) {
         // Расписание уже записано при первом ответе Again, здесь только закрепление.
-        label = def.rating === "Again" ? "Again (ещё раз)" : `${def.rating} (${card.interval}d)`;
+        intervalText = def.rating === "Again" ? "ещё раз" : formatInterval(card.interval);
       } else {
-        label = `${def.rating} (${this.getPreview(card)[def.rating].interval}d)`;
+        intervalText = formatInterval(this.getPreview(card)[def.rating].interval);
       }
       const btn = buttonsContainer.createEl("button", {
-        text: label,
         cls: def.cls,
-        attr: { title: `Клавиша ${def.key}` }
+        attr: { title: `Клавиша ${def.key}`, "aria-label": `${def.rating}, ${intervalText}, клавиша ${def.key}` }
       });
+      btn.createSpan({ text: def.key, cls: "mcq-btn-key", attr: { "aria-hidden": "true" } });
+      btn.createSpan({ text: def.rating, cls: "mcq-btn-label" });
+      btn.createSpan({ text: intervalText, cls: "mcq-btn-interval" });
       if (def.rating === suggested)
         btn.classList.add("mcq-suggested");
       return btn;
@@ -237,10 +240,9 @@ export class ReviewModal extends Modal {
         await this.processAnswer(card, defs[idx].rating);
       });
     });
-    container.createDiv({
-      cls: "mcq-key-hint",
-      text: suggested ? "1–4 — оценка, Enter — рекомендованная" : "1–4 — оценка"
-    });
+    if (suggested) {
+      container.createDiv({ cls: "mcq-key-hint", text: "Рамкой выделена рекомендованная оценка · Enter" });
+    }
   }
   onClose() {
     this.isClosed = true;
@@ -630,8 +632,19 @@ export class ReviewModal extends Modal {
     if (!multi) return;
     const controls = cardBodyEl.createDiv({ cls: "mcq-controls-container" });
     const checkBtn = controls.createEl("button", { text: "Проверить", cls: "mcq-cloze-check-btn mcq-multi-check-btn" });
+    const emptyMsg = controls.createDiv({ cls: "mcq-check-error" });
+    inputs.forEach((i) => i.addEventListener("change", () => emptyMsg.setText("")));
     checkBtn.addEventListener("click", (e) => {
       e.preventDefault();
+      if (!inputs.some((i) => i && i.checked)) {
+        // Пустая проверка не засчитывается: кнопка вздрагивает и просит выбрать вариант.
+        checkBtn.removeClass("mcq-shake");
+        void checkBtn.offsetWidth;
+        checkBtn.addClass("mcq-shake");
+        emptyMsg.setText("Выберите хотя бы один вариант");
+        return;
+      }
+      emptyMsg.remove();
       checkBtn.disabled = true;
       let allRight = true;
       card.options.forEach((option, index) => {
@@ -705,7 +718,7 @@ export class ReviewModal extends Modal {
   private renderToolbar(container: HTMLElement, card: Flashcard): void {
     const toolbar = container.createDiv({ cls: "mcq-review-toolbar" });
     const info = toolbar.createDiv({ cls: "mcq-review-progress" });
-    info.createSpan({ text: `${this.currentIndex + 1} / ${this.flashcards.length}` });
+    info.createSpan({ text: `${this.currentIndex + 1} из ${this.flashcards.length}` });
     if (this.relearning.has(card.id)) {
       info.createSpan({ text: "повтор ошибки", cls: "mcq-relearn-badge" });
     }
@@ -714,6 +727,9 @@ export class ReviewModal extends Modal {
     this.createToolbarButton(actions, "skip-forward", "Пропустить — показать позже (S)", () => this.skipCurrent(),
       this.flashcards.length - this.currentIndex <= 1);
     this.createToolbarButton(actions, "clock", "Отложить до завтра (B)", () => void this.buryCurrent());
+    const bar = container.createDiv({ cls: "mcq-progress-bar", attr: { "aria-hidden": "true" } });
+    const done = this.flashcards.length > 0 ? this.currentIndex / this.flashcards.length : 0;
+    bar.createDiv({ cls: "mcq-progress-fill" }).style.width = `${Math.round(done * 100)}%`;
   }
 
   /** Переносит текущую карточку в конец очереди. */

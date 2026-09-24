@@ -68,7 +68,13 @@
 
 .mcq-grading-buttons button {
     flex: 1;
-    padding: 12px;
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2px;
+    height: auto;
+    padding: 10px 6px;
     border: none;
     border-radius: 6px;
     cursor: pointer;
@@ -955,9 +961,80 @@ input.mcq-cloze-input:disabled {
     box-shadow: 0 4px 8px rgba(0, 0, 0, 0.06);
 }
 
+/* Рекомендованная оценка: рамка цвета самой кнопки */
 .mcq-grading-buttons button.mcq-suggested {
-    outline: 2px solid var(--text-normal);
+    outline: 2px solid currentColor;
     outline-offset: 2px;
+}
+
+.mcq-btn-label {
+    line-height: 1.2;
+}
+
+.mcq-btn-interval {
+    font-size: 0.8em;
+    font-weight: 400;
+    line-height: 1.2;
+    color: var(--text-muted);
+}
+
+/* Номер клавиши в углу кнопки, в цвет кнопки */
+.mcq-btn-key {
+    position: absolute;
+    top: 4px;
+    left: 5px;
+    min-width: 1.3em;
+    padding: 1px 4px;
+    border-radius: 4px;
+    font-size: 0.7em;
+    font-weight: 600;
+    line-height: 1.3;
+    text-align: center;
+    background: color-mix(in srgb, currentColor 16%, transparent);
+}
+
+/* Полоса прогресса сессии */
+.mcq-progress-bar {
+    width: 100%;
+    height: 4px;
+    border-radius: 2px;
+    background: var(--background-modifier-border);
+    overflow: hidden;
+}
+
+.mcq-progress-fill {
+    height: 100%;
+    border-radius: 2px;
+    background: var(--interactive-accent);
+    transition: width 0.25s ease;
+}
+
+/* Встряхивание кнопки при проверке без выбора */
+@keyframes mcq-shake {
+    0%, 100% { transform: translateX(0); }
+    15% { transform: translateX(-6px); }
+    30% { transform: translateX(5px); }
+    45% { transform: translateX(-4px); }
+    60% { transform: translateX(3px); }
+    75% { transform: translateX(-2px); }
+    90% { transform: translateX(1px); }
+}
+
+.mcq-shake {
+    animation: mcq-shake 0.5s ease-in-out;
+}
+
+.mcq-check-error {
+    width: 100%;
+    text-align: center;
+    font-size: 0.85em;
+    color: var(--color-red, var(--text-error, #e34b4b));
+    min-height: 1.2em;
+    margin-top: 6px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .mcq-shake { animation: none; }
 }
 
 /* Organically adjusted modal dimensions based on question type */
