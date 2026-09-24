@@ -13,6 +13,7 @@ import { FOCUS_QUEUE_VIEW_TYPE, FocusQueueView } from "./FocusQueueView";
 import { gapHighlightViewPlugin } from "./livePreview";
 import { processFenceCardsForReading, processGapTextForReading } from "./readingView";
 import { buildReviewQueue } from "./queue";
+import { DEFAULT_SCHEDULER, sanitizeSchedulerSettings, type SchedulerSettings } from "./scheduler";
 import { ReviewModal } from "./ReviewModal";
 import { McqSettingTab } from "./settings";
 import { collectFileTags } from "./tags";
@@ -167,7 +168,14 @@ export default class McqSpacedRepetitionPlugin extends Plugin {
   async loadSettings(): Promise<void> {
     const data = await this.loadData();
     this.settings = Object.assign(
-      { focusQueue: [], reviewCounts: {}, buriedCards: {}, shuffleQueue: true, shuffleMcqOptions: true },
+      {
+        focusQueue: [],
+        reviewCounts: {},
+        buriedCards: {},
+        shuffleQueue: true,
+        shuffleMcqOptions: true,
+        ...DEFAULT_SCHEDULER
+      },
       data
     );
     if (!Array.isArray(this.settings.focusQueue)) {
@@ -236,7 +244,8 @@ export default class McqSpacedRepetitionPlugin extends Plugin {
       },
       onCardReviewed: (card, rating, info) => this.handleCardReviewed(card, rating, info),
       onCardBuried: (card) => this.buryCard(card),
-      shuffleMcqOptions: this.settings.shuffleMcqOptions
+      shuffleMcqOptions: this.settings.shuffleMcqOptions,
+      scheduler: this.schedulerSettings()
     }).open();
   }
 
@@ -257,6 +266,10 @@ export default class McqSpacedRepetitionPlugin extends Plugin {
       this.settings.buriedCards = data.buriedCards;
       await this.saveSettings();
     };
+  }
+
+  schedulerSettings(): SchedulerSettings {
+    return sanitizeSchedulerSettings(this.settings);
   }
 
   /** Откладывает карточку до конца сегодняшнего дня. */
@@ -360,7 +373,8 @@ export default class McqSpacedRepetitionPlugin extends Plugin {
         return undo;
       },
       onCardBuried: (card) => this.buryCard(card),
-      shuffleMcqOptions: this.settings.shuffleMcqOptions
+      shuffleMcqOptions: this.settings.shuffleMcqOptions,
+      scheduler: this.schedulerSettings()
     }).open();
   }
 }

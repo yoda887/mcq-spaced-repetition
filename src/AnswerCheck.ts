@@ -27,12 +27,13 @@ interface CharDiff {
 }
 
 /**
- * Приводит ответ к виду для сравнения: регистр, ё/е, типографские кавычки,
+ * Приводит ответ к виду для сравнения: Unicode NFKC (полноширинные буквы, лигатуры),
+ * регистр, ё/е, типографские кавычки,
  * апострофы и тире, лишние пробелы, знаки препинания по краям.
  */
 export function normalizeAnswer(value: unknown): string {
   return String(value == null ? "" : value)
-    .normalize("NFC")
+    .normalize("NFKC")
     .toLowerCase()
     .replace(/\u0451/g, "\u0435")
     .replace(/[\u2018\u2019\u201A\u201B\u0060\u00B4\u02BC]/g, "'")

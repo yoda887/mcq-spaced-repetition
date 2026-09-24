@@ -6,13 +6,12 @@ import {
   restoreCardRegion,
   escapeAttr,
   extractFlashcards,
-  nextDomId,
-  sanitizeDueDate,
-  toDateStr
+  formatScheduleData,
+  nextDomId
 } from "./FlashcardParser";
-import { calculateNextReview } from "./SM2";
+import { DEFAULT_SCHEDULER, previewSchedules, type ScheduleResult, type SchedulerSettings } from "./scheduler";
 import { shuffleInPlace } from "./queue";
-import type { Flashcard, Rating, ReviewInfo, UndoFn } from "./types";
+import type { Flashcard, FsrsState, Rating, ReviewInfo, UndoFn } from "./types";
 
 export interface ReviewHooks {
   /** Вызывается при закрытии окна. */
@@ -23,6 +22,8 @@ export interface ReviewHooks {
   onCardBuried?: (card: Flashcard) => Promise<UndoFn | void>;
   /** Перемешивать варианты ответа в тестах. */
   shuffleMcqOptions?: boolean;
+  /** Алгоритм и параметры интервалов. */
+  scheduler?: SchedulerSettings;
 }
 
 /** Снимок состояния сессии до действия, которое можно отменить. */
@@ -36,6 +37,7 @@ interface UndoFrame {
     ease: number;
     interval: number;
     nextReview: number;
+    fsrs: FsrsState | null;
     /** Текст карточки в заметке до записи нового расписания. */
     fileText: string | null;
   };
@@ -72,6 +74,11 @@ export class ReviewModal extends Modal {
   private undoStack: UndoFrame[] = [];
   /** Порядок вариантов теста в пределах сессии: id карточки -> индексы вариантов. */
   private mcqOrder = new Map<string, number[]>();
+  /**
+   * Расписания, показанные на кнопках текущей карточки. FSRS добавляет к интервалу
+   * небольшой случайный разброс, поэтому оценка берёт ровно то, что было показано.
+   */
+  private preview: { card: Flashcard; results: Record<Rating, ScheduleResult> } | null = null;
   private currentIndex: number;
   private isEditMode: boolean;
   private isClosed: boolean;
@@ -154,11 +161,14 @@ export class ReviewModal extends Modal {
         const idx = parseInt(key) - 1;
         const options = this.contentEl.querySelectorAll(".mcq-option-row");
         if (options && options[idx]) {
-          const radio = options[idx].querySelector<HTMLInputElement>("input[type='radio']");
-          if (radio && !radio.disabled) {
-            radio.click();
+          const input = options[idx].querySelector<HTMLInputElement>("input");
+          if (input && !input.disabled) {
+            input.click();
           }
         }
+      } else if (key === "Enter") {
+        const checkBtn2 = this.contentEl.querySelector<HTMLButtonElement>(".mcq-multi-check-btn");
+        if (checkBtn2 && !checkBtn2.disabled) checkBtn2.click();
       }
     } else if (card.type === "block" || card.type === "cloze" && card._hasTypeGap) {
       if (key === "Enter") {
@@ -209,7 +219,7 @@ export class ReviewModal extends Modal {
         // Расписание уже записано при первом ответе Again, здесь только закрепление.
         label = def.rating === "Again" ? "Again (ещё раз)" : `${def.rating} (${card.interval}d)`;
       } else {
-        label = `${def.rating} (${calculateNextReview(card.ease, card.interval, def.rating).interval}d)`;
+        label = `${def.rating} (${this.getPreview(card)[def.rating].interval}d)`;
       }
       const btn = buttonsContainer.createEl("button", {
         text: label,
@@ -346,49 +356,7 @@ export class ReviewModal extends Modal {
       });
     }
     if (mcqUsable) {
-      const optionsContainer = cardBodyEl.createDiv({ cls: "mcq-options" });
-      const groupName = `mcq-answer-${nextDomId()}`;
-      const rowsByOption: HTMLElement[] = [];
-      this.getOptionOrder(card).forEach((index) => {
-        const option = card.options[index];
-        const optionRow = optionsContainer.createDiv({ cls: "mcq-option-row" });
-        rowsByOption[index] = optionRow;
-        const radioId = `${groupName}-${index}`;
-        const radio = optionRow.createEl("input", {
-          type: "radio",
-          attr: {
-            id: radioId,
-            name: groupName,
-            value: index.toString()
-          }
-        });
-        optionRow.createEl("label", {
-          text: option.text,
-          attr: {
-            for: radioId
-          }
-        });
-        radio.addEventListener("change", () => {
-          const allRadios = optionsContainer.querySelectorAll<HTMLInputElement>("input[type='radio']");
-          allRadios.forEach((r) => r.disabled = true);
-          const isCorrect = option.isCorrect;
-          if (isCorrect) {
-            optionRow.addClass("mcq-correct");
-          } else {
-            optionRow.addClass("mcq-incorrect");
-            const correctIndex = card.options.findIndex((o) => o.isCorrect);
-            if (correctIndex >= 0) {
-              const correctRow = rowsByOption[correctIndex];
-              if (correctRow) correctRow.addClass("mcq-correct");
-            }
-          }
-          const timer = window.setTimeout(() => {
-            if (this.isClosed) return;
-            this.processAnswer(card, isCorrect ? "Good" : "Hard");
-          }, 1500);
-          this.timeouts.push(timer);
-        });
-      });
+      this.renderMcqOptions(cardBodyEl, card);
     } else if (card.type === "cloze" && card._hasTypeGap || card.type === "block") {
       const controlsContainer = cardBodyEl.createDiv({ cls: "mcq-controls-container" });
       const checkBtn = controlsContainer.createEl("button", { text: "Проверить", cls: "mcq-cloze-check-btn" });
@@ -561,17 +529,16 @@ export class ReviewModal extends Modal {
     const relearnStep = this.relearning.has(card.id);
     try {
       if (!relearnStep) {
-        const prev = { ease: card.ease, interval: card.interval, nextReview: card.nextReview };
-        const { ease, interval } = calculateNextReview(card.ease, card.interval, rating);
-        const nextDate = new Date();
-        nextDate.setDate(nextDate.getDate() + interval);
-        const dateString = toDateStr(nextDate);
-        const newSrData = `<!--SR:${dateString},${interval},${ease.toFixed(2)}-->`;
+        const prev = { ease: card.ease, interval: card.interval, nextReview: card.nextReview, fsrs: card.fsrs || null };
+        const next = this.getPreview(card)[rating];
+        const newSrData = `<!--SR:${formatScheduleData(next)}-->`;
         const fileText = await applyCardUpdate(this.app, card, newSrData);
         frame.cardState = { card, ...prev, fileText };
-        card.ease = ease;
-        card.interval = interval;
-        card.nextReview = sanitizeDueDate(dateString);
+        card.ease = next.ease;
+        card.interval = next.interval;
+        card.nextReview = next.nextReview;
+        card.fsrs = next.fsrs;
+        this.preview = null;
       }
       if (rating === "Again") {
         // Шаг повторного изучения: карточка вернётся в конце этой сессии.
@@ -594,6 +561,100 @@ export class ReviewModal extends Modal {
     if (this.isClosed) return;
     this.currentIndex++;
     this.renderCurrentCard();
+  }
+
+  /** Варианты теста: один правильный — переключатели, несколько — флажки и кнопка «Проверить». */
+  private renderMcqOptions(cardBodyEl: HTMLElement, card: Flashcard): void {
+    const correctCount = card.options.filter((o) => o.isCorrect).length;
+    const multi = correctCount > 1;
+    if (multi) {
+      cardBodyEl.createDiv({ text: `Выберите все правильные варианты (${correctCount})`, cls: "mcq-multi-hint" });
+    }
+    const optionsContainer = cardBodyEl.createDiv({ cls: "mcq-options" });
+    const groupName = `mcq-answer-${nextDomId()}`;
+    const rowsByOption: HTMLElement[] = [];
+    const inputs: HTMLInputElement[] = [];
+    const finish = (isCorrect: boolean) => {
+      inputs.forEach((i) => i.disabled = true);
+      const timer = window.setTimeout(() => {
+        if (this.isClosed) return;
+        this.processAnswer(card, isCorrect ? "Good" : "Hard");
+      }, 1500);
+      this.timeouts.push(timer);
+    };
+    this.getOptionOrder(card).forEach((index) => {
+      const option = card.options[index];
+      const optionRow = optionsContainer.createDiv({ cls: "mcq-option-row" });
+      if (multi) optionRow.addClass("mcq-option-multi");
+      rowsByOption[index] = optionRow;
+      const inputId = `${groupName}-${index}`;
+      const input = optionRow.createEl("input", {
+        type: multi ? "checkbox" : "radio",
+        attr: {
+          id: inputId,
+          name: groupName,
+          value: index.toString()
+        }
+      });
+      inputs[index] = input;
+      optionRow.createEl("label", {
+        text: option.text,
+        attr: {
+          for: inputId
+        }
+      });
+      input.addEventListener("change", () => {
+        if (multi) {
+          optionRow.toggleClass("is-selected", input.checked);
+          return;
+        }
+        if (option.isCorrect) {
+          optionRow.addClass("mcq-correct");
+        } else {
+          optionRow.addClass("mcq-incorrect");
+          const correctIndex = card.options.findIndex((o) => o.isCorrect);
+          if (correctIndex >= 0 && rowsByOption[correctIndex]) {
+            rowsByOption[correctIndex].addClass("mcq-correct");
+          }
+        }
+        finish(option.isCorrect);
+      });
+    });
+    if (!multi) return;
+    const controls = cardBodyEl.createDiv({ cls: "mcq-controls-container" });
+    const checkBtn = controls.createEl("button", { text: "Проверить", cls: "mcq-cloze-check-btn mcq-multi-check-btn" });
+    checkBtn.addEventListener("click", (e) => {
+      e.preventDefault();
+      checkBtn.disabled = true;
+      let allRight = true;
+      card.options.forEach((option, index) => {
+        const row = rowsByOption[index];
+        const selected = inputs[index].checked;
+        row.removeClass("is-selected");
+        if (selected && option.isCorrect) {
+          row.addClass("mcq-correct");
+        } else if (selected && !option.isCorrect) {
+          row.addClass("mcq-incorrect");
+          allRight = false;
+        } else if (!selected && option.isCorrect) {
+          row.addClass("mcq-missed");
+          allRight = false;
+        }
+      });
+      checkBtn.hide();
+      controls.createDiv({
+        cls: `mcq-check-summary ${allRight ? "is-correct" : "is-wrong"}`,
+        text: allRight ? "Верно" : "Неверно: пунктиром отмечены пропущенные правильные варианты"
+      });
+      finish(allRight);
+    });
+  }
+
+  private getPreview(card: Flashcard): Record<Rating, ScheduleResult> {
+    if (!this.preview || this.preview.card !== card) {
+      this.preview = { card, results: previewSchedules(card, this.hooks.scheduler || DEFAULT_SCHEDULER) };
+    }
+    return this.preview.results;
   }
 
   private clearTimers(): void {
@@ -713,6 +774,8 @@ export class ReviewModal extends Modal {
         state.card.ease = state.ease;
         state.card.interval = state.interval;
         state.card.nextReview = state.nextReview;
+        state.card.fsrs = state.fsrs;
+        this.preview = null;
       }
       if (frame.pluginUndo) {
         await frame.pluginUndo();

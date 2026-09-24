@@ -13,10 +13,24 @@ export interface McqOption {
 }
 
 /** Расписание повторения, прочитанное из комментария <!--SR:...-->. */
+/** Состояние карточки для алгоритма FSRS (хранится в SR-комментарии после ease). */
+export interface FsrsState {
+  stability: number;
+  difficulty: number;
+  /** 0 New, 1 Learning, 2 Review, 3 Relearning (как в ts-fsrs). */
+  state: number;
+  reps: number;
+  lapses: number;
+  /** Дата последнего повтора, мс (локальная полночь). */
+  lastReview: number;
+}
+
 export interface Schedule {
   nextReview: number;
   interval: number;
   ease: number;
+  /** null — у карточки ещё нет данных FSRS (новая или оценивалась по SM-2). */
+  fsrs?: FsrsState | null;
 }
 
 export interface Flashcard extends Schedule {
@@ -64,6 +78,12 @@ export interface PluginSettings {
   reviewCounts: Record<string, number>;
   /** id карточки -> дата, до конца которой она скрыта (парные карточки). */
   buriedCards: Record<string, string>;
+  /** Алгоритм интервалов. */
+  algorithm: "fsrs" | "sm2";
+  /** Желаемая вероятность вспомнить карточку в день повтора (FSRS), 0.7–0.97. */
+  desiredRetention: number;
+  /** Максимальный интервал, дней. */
+  maximumInterval: number;
   /** Перемешивать порядок карточек в сессии. */
   shuffleQueue: boolean;
   /** Перемешивать варианты ответа в тестах :::test. */

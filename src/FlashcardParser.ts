@@ -1,5 +1,5 @@
 import type { App, TFile } from "obsidian";
-import type { Flashcard, McqOption, Schedule } from "./types";
+import type { Flashcard, FsrsState, McqOption, Schedule } from "./types";
 
 /** Диапазон [start, end) в тексте. */
 type Region = [number, number];
@@ -49,23 +49,62 @@ export function sanitizeEase(value: unknown): number {
 export function sanitizeInterval(value: unknown): number {
   const n = typeof value === "number" ? value : parseFloat(String(value));
   if (!Number.isFinite(n)) return 0;
-  return Math.max(0, Math.min(365, Math.round(n)));
+  return Math.max(0, Math.min(36500, Math.round(n)));
 }
 export function sanitizeDueDate(value: unknown): number {
   const t = parseDateLocal(value);
   return Number.isFinite(t) ? t : 0;
 }
+/**
+ * Разбирает содержимое SR-комментария: "дата,интервал,ease[,f:S:D:state:reps:lapses:дата]".
+ * Четвёртое поле (данные FSRS) необязательно.
+ */
 export function parseSchedule(srString: string | null | undefined): Schedule {
   const parts = String(srString == null ? "" : srString).split(",");
   if (parts.length < 3) {
-    return { nextReview: 0, interval: 0, ease: 2.5 };
+    return { nextReview: 0, interval: 0, ease: 2.5, fsrs: null };
   }
   return {
     nextReview: sanitizeDueDate(parts[0]),
     interval: sanitizeInterval(parts[1]),
-    ease: sanitizeEase(parts[2])
+    ease: sanitizeEase(parts[2]),
+    fsrs: parseFsrsField(parts[3])
   };
 }
+
+function parseFsrsField(field: string | undefined): FsrsState | null {
+  const raw = String(field == null ? "" : field).trim();
+  if (!raw.startsWith("f:")) return null;
+  const p = raw.slice(2).split(":");
+  if (p.length < 6) return null;
+  const stability = parseFloat(p[0]);
+  const difficulty = parseFloat(p[1]);
+  const state = parseInt(p[2], 10);
+  const reps = parseInt(p[3], 10);
+  const lapses = parseInt(p[4], 10);
+  const lastReview = sanitizeDueDate(p[5]);
+  if (![stability, difficulty, state, reps, lapses].every(Number.isFinite) || stability <= 0 || !lastReview) {
+    return null;
+  }
+  return {
+    stability,
+    difficulty: Math.max(1, Math.min(10, difficulty)),
+    state: Math.max(0, Math.min(3, state)),
+    reps: Math.max(0, reps),
+    lapses: Math.max(0, lapses),
+    lastReview
+  };
+}
+
+/** Собирает содержимое SR-комментария (без "<!--SR:" и "-->"). */
+export function formatScheduleData(schedule: Schedule): string {
+  const base = `${toDateStr(new Date(schedule.nextReview))},${sanitizeInterval(schedule.interval)},${sanitizeEase(schedule.ease).toFixed(2)}`;
+  const f = schedule.fsrs;
+  if (!f) return base;
+  const num = (x: number) => String(Math.round(x * 100) / 100);
+  return `${base},f:${num(f.stability)}:${num(f.difficulty)}:${f.state}:${f.reps}:${f.lapses}:${toDateStr(new Date(f.lastReview))}`;
+}
+
 export function hashString(str: string): string {
   let h = 2166136261;
   const s = String(str == null ? "" : str);
@@ -263,6 +302,7 @@ export function extractFlashcards(content: string, file: TFile): Flashcard[] {
       editEnd: end,
       file,
       ease: sched.ease,
+      fsrs: sched.fsrs,
       interval: sched.interval,
       nextReview: sched.nextReview,
       type: "mcq"
@@ -304,6 +344,7 @@ export function extractFlashcards(content: string, file: TFile): Flashcard[] {
       editEnd: end,
       file,
       ease: sched.ease,
+      fsrs: sched.fsrs,
       interval: sched.interval,
       nextReview: sched.nextReview,
       type: "block"
@@ -351,6 +392,7 @@ export function extractFlashcards(content: string, file: TFile): Flashcard[] {
       nextReview: fwd.nextReview,
       interval: fwd.interval,
       ease: fwd.ease,
+      fsrs: fwd.fsrs,
       type: isReversed ? "reversed" : "standard"
     }, shared));
     if (isReversed) {
@@ -362,6 +404,7 @@ export function extractFlashcards(content: string, file: TFile): Flashcard[] {
         nextReview: rev.nextReview,
         interval: rev.interval,
         ease: rev.ease,
+        fsrs: rev.fsrs,
         type: "reversed",
         isReverseDirection: true
       }, shared));
@@ -416,6 +459,7 @@ export function extractFlashcards(content: string, file: TFile): Flashcard[] {
       nextReview: fwd.nextReview,
       interval: fwd.interval,
       ease: fwd.ease,
+      fsrs: fwd.fsrs,
       type: isReversed ? "reversed" : "multiline"
     }, shared));
     if (isReversed) {
@@ -427,6 +471,7 @@ export function extractFlashcards(content: string, file: TFile): Flashcard[] {
         nextReview: rev.nextReview,
         interval: rev.interval,
         ease: rev.ease,
+        fsrs: rev.fsrs,
         type: "reversed",
         isReverseDirection: true
       }, shared));
@@ -462,6 +507,7 @@ export function extractFlashcards(content: string, file: TFile): Flashcard[] {
       nextReview: sched.nextReview,
       interval: sched.interval,
       ease: sched.ease,
+      fsrs: sched.fsrs,
       type: "cloze"
     });
   }

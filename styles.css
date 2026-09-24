@@ -268,6 +268,46 @@
     border-color: var(--text-accent);
 }
 
+.mcq-option-row input[type="checkbox"] {
+    display: none;
+}
+
+/* Тест с несколькими правильными ответами: квадратные флажки */
+.mcq-option-multi::before {
+    border-radius: 4px;
+}
+
+.mcq-option-multi.is-selected {
+    border-color: var(--interactive-accent);
+}
+
+.mcq-option-multi.is-selected::before {
+    content: "\2713";
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--text-on-accent);
+    border-color: var(--interactive-accent);
+    background-color: var(--interactive-accent);
+}
+
+/* Правильный вариант, который не был выбран */
+.mcq-missed {
+    border: 1px dashed var(--color-green, var(--text-success, #3ba55c)) !important;
+}
+
+.mcq-missed::before {
+    border-color: var(--color-green, var(--text-success, #3ba55c)) !important;
+}
+
+.mcq-multi-hint {
+    font-size: 0.85em;
+    color: var(--text-muted);
+    margin: -4px 0 10px;
+}
+
 .mcq-option-row label {
     cursor: pointer;
     width: 100%;
