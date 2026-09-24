@@ -3,6 +3,7 @@ import { buildWordDiffFragment, evaluateAnswer, normalizeAnswer } from "./Answer
 import {
   applyCardEdit,
   applyCardUpdate,
+  restoreCardRegion,
   escapeAttr,
   extractFlashcards,
   nextDomId,
@@ -10,9 +11,40 @@ import {
   toDateStr
 } from "./FlashcardParser";
 import { calculateNextReview } from "./SM2";
-import type { Flashcard, Rating } from "./types";
+import { shuffleInPlace } from "./queue";
+import type { Flashcard, Rating, ReviewInfo, UndoFn } from "./types";
 
-export type CardReviewedCallback = (card: Flashcard, rating: Rating) => Promise<void> | void;
+export interface ReviewHooks {
+  /** Вызывается при закрытии окна. */
+  onComplete: () => void;
+  /** Вызывается после каждой оценки; может вернуть функцию отката своих изменений. */
+  onCardReviewed?: (card: Flashcard, rating: Rating, info: ReviewInfo) => Promise<UndoFn | void>;
+  /** Откладывает карточку до завтра; может вернуть функцию отката. */
+  onCardBuried?: (card: Flashcard) => Promise<UndoFn | void>;
+  /** Перемешивать варианты ответа в тестах. */
+  shuffleMcqOptions?: boolean;
+}
+
+/** Снимок состояния сессии до действия, которое можно отменить. */
+interface UndoFrame {
+  label: string;
+  queue: Flashcard[];
+  index: number;
+  relearning: string[];
+  cardState?: {
+    card: Flashcard;
+    ease: number;
+    interval: number;
+    nextReview: number;
+    /** Текст карточки в заметке до записи нового расписания. */
+    fileText: string | null;
+  };
+  pluginUndo?: UndoFn;
+}
+
+const UNDO_KEYS = ["u", "г"];
+const SKIP_KEYS = ["s", "ы"];
+const BURY_KEYS = ["b", "и"];
 
 async function renderCardMarkdown(app: App, markdown: string, el: HTMLElement, sourcePath: string, component: Component): Promise<void> {
   if (MarkdownRenderer.render) {
@@ -33,16 +65,20 @@ function applyGapInputWidths(container: HTMLElement): void {
 
 export class ReviewModal extends Modal {
   private flashcards: Flashcard[];
-  private onComplete: () => void;
-  private onCardReviewed?: CardReviewedCallback;
+  private hooks: ReviewHooks;
   private mdComponent: Component;
+  /** id карточек, отвеченных Again в этой сессии и ещё не отвеченных верно. */
+  private relearning = new Set<string>();
+  private undoStack: UndoFrame[] = [];
+  /** Порядок вариантов теста в пределах сессии: id карточки -> индексы вариантов. */
+  private mcqOrder = new Map<string, number[]>();
   private currentIndex: number;
   private isEditMode: boolean;
   private isClosed: boolean;
   private isProcessing: boolean;
   private timeouts: number[];
 
-  constructor(app: App, flashcards: Flashcard[], onComplete: () => void, onCardReviewed?: CardReviewedCallback) {
+  constructor(app: App, flashcards: Flashcard[], hooks: ReviewHooks) {
     super(app);
     this.currentIndex = 0;
     this.isEditMode = false;
@@ -50,8 +86,7 @@ export class ReviewModal extends Modal {
     this.isProcessing = false;
     this.timeouts = [];
     this.flashcards = flashcards;
-    this.onComplete = onComplete;
-    this.onCardReviewed = onCardReviewed;
+    this.hooks = hooks;
     this.mdComponent = new Component();
   }
   onOpen() {
@@ -75,6 +110,9 @@ export class ReviewModal extends Modal {
     this.scope.register([], "4", (evt) => {
       return this.handleKeyPress("4", evt);
     });
+    for (const key of [...UNDO_KEYS, ...SKIP_KEYS, ...BURY_KEYS]) {
+      this.scope.register([], key, (evt) => this.handleKeyPress(key, evt));
+    }
     this.renderCurrentCard();
   }
   /** Возвращает false, чтобы Obsidian не обрабатывал нажатие дальше. */
@@ -92,6 +130,19 @@ export class ReviewModal extends Modal {
         return false;
       }
       return true;
+    }
+    const lower = key.toLowerCase();
+    if (UNDO_KEYS.includes(lower)) {
+      void this.undo();
+      return false;
+    }
+    if (SKIP_KEYS.includes(lower)) {
+      this.skipCurrent();
+      return false;
+    }
+    if (BURY_KEYS.includes(lower)) {
+      void this.buryCurrent();
+      return false;
     }
     const card = this.flashcards[this.currentIndex];
     if (!card)
@@ -151,10 +202,17 @@ export class ReviewModal extends Modal {
       { rating: "Good", cls: "mcq-btn-good", key: "3" },
       { rating: "Easy", cls: "mcq-btn-easy", key: "4" }
     ];
+    const relearnStep = this.relearning.has(card.id);
     const buttons = defs.map((def) => {
-      const interval = calculateNextReview(card.ease, card.interval, def.rating).interval;
+      let label: string;
+      if (relearnStep) {
+        // Расписание уже записано при первом ответе Again, здесь только закрепление.
+        label = def.rating === "Again" ? "Again (ещё раз)" : `${def.rating} (${card.interval}d)`;
+      } else {
+        label = `${def.rating} (${calculateNextReview(card.ease, card.interval, def.rating).interval}d)`;
+      }
       const btn = buttonsContainer.createEl("button", {
-        text: `${def.rating} (${interval}d)`,
+        text: label,
         cls: def.cls,
         attr: { title: `Клавиша ${def.key}` }
       });
@@ -175,18 +233,21 @@ export class ReviewModal extends Modal {
   }
   onClose() {
     this.isClosed = true;
-    this.timeouts.forEach((id) => window.clearTimeout(id));
-    this.timeouts = [];
+    this.clearTimers();
     const { contentEl } = this;
     contentEl.empty();
     this.mdComponent.unload();
-    this.onComplete();
+    this.hooks.onComplete();
   }
   private async renderCurrentCard(): Promise<void> {
     const { contentEl } = this;
     contentEl.empty();
     if (this.currentIndex >= this.flashcards.length) {
       contentEl.createEl("h2", { text: "Поздравляем! Вы повторили все доступные карточки." });
+      if (this.undoStack.length > 0) {
+        const toolbar = contentEl.createDiv({ cls: "mcq-review-toolbar" });
+        this.createToolbarButton(toolbar, "undo-2", "Отменить последнее действие (U)", () => void this.undo());
+      }
       return;
     }
     const card = this.flashcards[this.currentIndex];
@@ -212,6 +273,7 @@ export class ReviewModal extends Modal {
       this.isEditMode = true;
       this.renderEditMode(card);
     });
+    this.renderToolbar(headerContainer, card);
     const pathParts = card.file.path.split("/");
     pathParts[pathParts.length - 1] = card.file.basename;
     const breadcrumbs = pathParts.join(" › ");
@@ -286,8 +348,11 @@ export class ReviewModal extends Modal {
     if (mcqUsable) {
       const optionsContainer = cardBodyEl.createDiv({ cls: "mcq-options" });
       const groupName = `mcq-answer-${nextDomId()}`;
-      card.options.forEach((option, index) => {
+      const rowsByOption: HTMLElement[] = [];
+      this.getOptionOrder(card).forEach((index) => {
+        const option = card.options[index];
         const optionRow = optionsContainer.createDiv({ cls: "mcq-option-row" });
+        rowsByOption[index] = optionRow;
         const radioId = `${groupName}-${index}`;
         const radio = optionRow.createEl("input", {
           type: "radio",
@@ -313,7 +378,7 @@ export class ReviewModal extends Modal {
             optionRow.addClass("mcq-incorrect");
             const correctIndex = card.options.findIndex((o) => o.isCorrect);
             if (correctIndex >= 0) {
-              const correctRow = optionsContainer.children[correctIndex] as HTMLElement | undefined;
+              const correctRow = rowsByOption[correctIndex];
               if (correctRow) correctRow.addClass("mcq-correct");
             }
           }
@@ -492,18 +557,33 @@ export class ReviewModal extends Modal {
   private async processAnswer(card: Flashcard, rating: Rating): Promise<void> {
     if (this.isClosed || this.isProcessing) return;
     this.isProcessing = true;
+    const frame = this.snapshot("оценка");
+    const relearnStep = this.relearning.has(card.id);
     try {
-      const { ease, interval } = calculateNextReview(card.ease, card.interval, rating);
-      const nextDate = new Date();
-      nextDate.setDate(nextDate.getDate() + interval);
-      const dateString = toDateStr(nextDate);
-      const newSrData = `<!--SR:${dateString},${interval},${ease.toFixed(2)}-->`;
-      await applyCardUpdate(this.app, card, newSrData);
-      card.ease = ease;
-      card.interval = interval;
-      card.nextReview = sanitizeDueDate(dateString);
-      if (this.onCardReviewed) {
-        await this.onCardReviewed(card, rating);
+      if (!relearnStep) {
+        const prev = { ease: card.ease, interval: card.interval, nextReview: card.nextReview };
+        const { ease, interval } = calculateNextReview(card.ease, card.interval, rating);
+        const nextDate = new Date();
+        nextDate.setDate(nextDate.getDate() + interval);
+        const dateString = toDateStr(nextDate);
+        const newSrData = `<!--SR:${dateString},${interval},${ease.toFixed(2)}-->`;
+        const fileText = await applyCardUpdate(this.app, card, newSrData);
+        frame.cardState = { card, ...prev, fileText };
+        card.ease = ease;
+        card.interval = interval;
+        card.nextReview = sanitizeDueDate(dateString);
+      }
+      if (rating === "Again") {
+        // Шаг повторного изучения: карточка вернётся в конце этой сессии.
+        this.relearning.add(card.id);
+        this.flashcards.push(card);
+      } else {
+        this.relearning.delete(card.id);
+      }
+      this.undoStack.push(frame);
+      if (this.hooks.onCardReviewed) {
+        const undo = await this.hooks.onCardReviewed(card, rating, { relearnStep });
+        if (typeof undo === "function") frame.pluginUndo = undo;
       }
     } catch (e) {
       console.error("MCQ SR: failed to save review result", e);
@@ -513,6 +593,141 @@ export class ReviewModal extends Modal {
     }
     if (this.isClosed) return;
     this.currentIndex++;
+    this.renderCurrentCard();
+  }
+
+  private clearTimers(): void {
+    this.timeouts.forEach((id) => window.clearTimeout(id));
+    this.timeouts = [];
+  }
+
+  /** Запоминает состояние сессии перед действием, которое можно отменить. */
+  private snapshot(label: string): UndoFrame {
+    return {
+      label,
+      queue: this.flashcards.slice(),
+      index: this.currentIndex,
+      relearning: Array.from(this.relearning)
+    };
+  }
+
+  /** Порядок вариантов теста: перемешивается один раз за сессию. */
+  private getOptionOrder(card: Flashcard): number[] {
+    const count = card.options ? card.options.length : 0;
+    const saved = this.mcqOrder.get(card.id);
+    if (saved && saved.length === count) return saved;
+    const order = Array.from({ length: count }, (_, i) => i);
+    if (this.hooks.shuffleMcqOptions) shuffleInPlace(order);
+    this.mcqOrder.set(card.id, order);
+    return order;
+  }
+
+  private createToolbarButton(parent: HTMLElement, icon: string, title: string, onClick: () => void, disabled = false): HTMLButtonElement {
+    const btn = parent.createEl("button", {
+      cls: "mcq-toolbar-btn clickable-icon",
+      attr: { title, "aria-label": title }
+    });
+    setIcon(btn, icon);
+    btn.disabled = disabled;
+    btn.addEventListener("click", onClick);
+    return btn;
+  }
+
+  /** Строка над карточкой: прогресс сессии и кнопки отмены, пропуска и откладывания. */
+  private renderToolbar(container: HTMLElement, card: Flashcard): void {
+    const toolbar = container.createDiv({ cls: "mcq-review-toolbar" });
+    const info = toolbar.createDiv({ cls: "mcq-review-progress" });
+    info.createSpan({ text: `${this.currentIndex + 1} / ${this.flashcards.length}` });
+    if (this.relearning.has(card.id)) {
+      info.createSpan({ text: "повтор ошибки", cls: "mcq-relearn-badge" });
+    }
+    const actions = toolbar.createDiv({ cls: "mcq-review-actions" });
+    this.createToolbarButton(actions, "undo-2", "Отменить последнее действие (U)", () => void this.undo(), this.undoStack.length === 0);
+    this.createToolbarButton(actions, "skip-forward", "Пропустить — показать позже (S)", () => this.skipCurrent(),
+      this.flashcards.length - this.currentIndex <= 1);
+    this.createToolbarButton(actions, "clock", "Отложить до завтра (B)", () => void this.buryCurrent());
+  }
+
+  /** Переносит текущую карточку в конец очереди. */
+  private skipCurrent(): void {
+    if (this.isProcessing || this.isEditMode || this.isClosed) return;
+    const card = this.flashcards[this.currentIndex];
+    if (!card) return;
+    if (this.flashcards.length - this.currentIndex <= 1) {
+      new Notice("Это последняя карточка в сессии.");
+      return;
+    }
+    this.clearTimers();
+    this.undoStack.push(this.snapshot("пропуск"));
+    this.flashcards.splice(this.currentIndex, 1);
+    this.flashcards.push(card);
+    this.renderCurrentCard();
+  }
+
+  /** Откладывает текущую карточку до завтра и убирает её из сессии. */
+  private async buryCurrent(): Promise<void> {
+    if (this.isProcessing || this.isEditMode || this.isClosed) return;
+    const card = this.flashcards[this.currentIndex];
+    if (!card) return;
+    this.clearTimers();
+    this.isProcessing = true;
+    const frame = this.snapshot("откладывание");
+    try {
+      if (this.hooks.onCardBuried) {
+        const undo = await this.hooks.onCardBuried(card);
+        if (typeof undo === "function") frame.pluginUndo = undo;
+      }
+      this.flashcards = this.flashcards.filter((c, i) => i < this.currentIndex || c.id !== card.id);
+      this.relearning.delete(card.id);
+      this.undoStack.push(frame);
+      new Notice("Карточка отложена до завтра.");
+    } catch (e) {
+      console.error("MCQ SR: failed to bury card", e);
+      new Notice("Не удалось отложить карточку — подробности в консоли разработчика.");
+    } finally {
+      this.isProcessing = false;
+    }
+    if (this.isClosed) return;
+    this.renderCurrentCard();
+  }
+
+  /** Отменяет последнее действие: оценку, пропуск или откладывание. */
+  private async undo(): Promise<void> {
+    if (this.isProcessing || this.isEditMode || this.isClosed) return;
+    const frame = this.undoStack.pop();
+    if (!frame) {
+      new Notice("Нечего отменять.");
+      return;
+    }
+    this.clearTimers();
+    this.isProcessing = true;
+    try {
+      const state = frame.cardState;
+      if (state) {
+        if (state.fileText !== null) {
+          const restored = await restoreCardRegion(this.app, state.card, state.fileText);
+          if (!restored) {
+            new Notice("Карточка изменилась в заметке — прежнее расписание вернуть не удалось.");
+          }
+        }
+        state.card.ease = state.ease;
+        state.card.interval = state.interval;
+        state.card.nextReview = state.nextReview;
+      }
+      if (frame.pluginUndo) {
+        await frame.pluginUndo();
+      }
+      this.flashcards = frame.queue;
+      this.currentIndex = frame.index;
+      this.relearning = new Set(frame.relearning);
+      new Notice(`Отменено: ${frame.label}.`);
+    } catch (e) {
+      console.error("MCQ SR: undo failed", e);
+      new Notice("Не удалось отменить действие — подробности в консоли разработчика.");
+    } finally {
+      this.isProcessing = false;
+    }
+    if (this.isClosed) return;
     this.renderCurrentCard();
   }
 }

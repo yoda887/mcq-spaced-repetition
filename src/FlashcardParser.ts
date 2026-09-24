@@ -478,7 +478,16 @@ function findLiveCard(content: string, card: Flashcard): Flashcard | null {
   }
   return found || null;
 }
-export function updateFlashcardInContent(content: string, card: Flashcard, newSrData: string): string {
+/**
+ * Записывает новое расписание карточки в текст файла.
+ * В replacedRegion сохраняется прежний текст карточки (для отмены оценки).
+ */
+export function updateFlashcardInContent(
+  content: string,
+  card: Flashcard,
+  newSrData: string,
+  replacedRegion?: { text: string | null }
+): string {
   const live = findLiveCard(content, card);
   if (!live) {
     console.warn("MCQ SR: card not found in file, schedule not saved", card && card.id);
@@ -508,37 +517,59 @@ export function updateFlashcardInContent(content: string, card: Flashcard, newSr
     const comment = live.type === "reversed" ? `<!--SR:${forward}!${reverse}-->` : `<!--SR:${forward}-->`;
     newRegion = live.body + eol + comment;
   }
+  if (replacedRegion) {
+    replacedRegion.text = content.slice(live.start, live.end);
+  }
   return content.slice(0, live.start) + newRegion + content.slice(live.end);
 }
-export async function applyCardUpdate(app: App, card: Flashcard, newSrData: string): Promise<void> {
+
+/** Меняет текст файла через vault.process (атомарно) или read/modify в старых версиях. */
+async function processFile(app: App, file: TFile, fn: (data: string) => string): Promise<void> {
   const vault = app.vault;
   if (typeof vault.process === "function") {
-    await vault.process(card.file, (data: string) => updateFlashcardInContent(data, card, newSrData));
+    await vault.process(file, fn);
     return;
   }
-  const fileContent = await vault.read(card.file);
-  const updated = updateFlashcardInContent(fileContent, card, newSrData);
+  const fileContent = await vault.read(file);
+  const updated = fn(fileContent);
   if (updated !== fileContent) {
-    await vault.modify(card.file, updated);
+    await vault.modify(file, updated);
   }
 }
+
+/**
+ * Сохраняет новое расписание карточки в заметку.
+ * Возвращает прежний текст карточки (или null, если карточка не найдена),
+ * чтобы оценку можно было отменить через restoreCardRegion.
+ */
+export async function applyCardUpdate(app: App, card: Flashcard, newSrData: string): Promise<string | null> {
+  const replaced: { text: string | null } = { text: null };
+  await processFile(app, card.file, (data) => {
+    replaced.text = null;
+    return updateFlashcardInContent(data, card, newSrData, replaced);
+  });
+  return replaced.text;
+}
+
+/** Возвращает карточке в заметке прежний текст (отмена оценки). */
+export async function restoreCardRegion(app: App, card: Flashcard, previousText: string): Promise<boolean> {
+  let ok = false;
+  await processFile(app, card.file, (data) => {
+    const live = findLiveCard(data, card);
+    if (!live) return data;
+    ok = true;
+    return data.slice(0, live.start) + previousText + data.slice(live.end);
+  });
+  return ok;
+}
+
 export async function applyCardEdit(app: App, card: Flashcard, newText: string): Promise<boolean> {
   let ok = false;
-  const rewrite = (data: string): string => {
+  await processFile(app, card.file, (data) => {
     const live = findLiveCard(data, card);
     if (!live) return data;
     ok = true;
     return data.slice(0, live.editStart) + newText + data.slice(live.editEnd);
-  };
-  const vault = app.vault;
-  if (typeof vault.process === "function") {
-    await vault.process(card.file, rewrite);
-  } else {
-    const fileContent = await vault.read(card.file);
-    const updated = rewrite(fileContent);
-    if (updated !== fileContent) {
-      await vault.modify(card.file, updated);
-    }
-  }
+  });
   return ok;
 }

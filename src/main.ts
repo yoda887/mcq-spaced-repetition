@@ -12,9 +12,11 @@ import { extractFlashcards, todayStr } from "./FlashcardParser";
 import { FOCUS_QUEUE_VIEW_TYPE, FocusQueueView } from "./FocusQueueView";
 import { gapHighlightViewPlugin } from "./livePreview";
 import { processFenceCardsForReading, processGapTextForReading } from "./readingView";
+import { buildReviewQueue } from "./queue";
 import { ReviewModal } from "./ReviewModal";
+import { McqSettingTab } from "./settings";
 import { collectFileTags } from "./tags";
-import type { Flashcard, PluginSettings, Rating } from "./types";
+import type { Flashcard, PluginSettings, Rating, ReviewInfo, UndoFn } from "./types";
 
 interface CachedFileCards {
   mtime: number;
@@ -58,6 +60,7 @@ export default class McqSpacedRepetitionPlugin extends Plugin {
       FOCUS_QUEUE_VIEW_TYPE,
       (leaf) => new FocusQueueView(leaf, this)
     );
+    this.addSettingTab(new McqSettingTab(this.app, this));
     this.addRibbonIcon("brain-cog", "Start MCQ Spaced Repetition", () => {
       this.startReviewSession();
     });
@@ -163,7 +166,10 @@ export default class McqSpacedRepetitionPlugin extends Plugin {
   }
   async loadSettings(): Promise<void> {
     const data = await this.loadData();
-    this.settings = Object.assign({ focusQueue: [], reviewCounts: {}, buriedCards: {} }, data);
+    this.settings = Object.assign(
+      { focusQueue: [], reviewCounts: {}, buriedCards: {}, shuffleQueue: true, shuffleMcqOptions: true },
+      data
+    );
     if (!Array.isArray(this.settings.focusQueue)) {
       this.settings.focusQueue = [];
     }
@@ -222,19 +228,47 @@ export default class McqSpacedRepetitionPlugin extends Plugin {
       new Notice(deckTag ? `Нет карточек для повторения в колоде #${deckTag}!` : "Нет карточек для повторения!");
       return;
     }
-    new Notice(`Найдено карточек: ${dueCards.length}`);
-    new ReviewModal(
-      this.app,
-      dueCards,
-      () => {
+    const queue = buildReviewQueue(dueCards, this.settings.shuffleQueue);
+    new Notice(`Найдено карточек: ${queue.length}`);
+    new ReviewModal(this.app, queue, {
+      onComplete: () => {
         new Notice("Сессия повторения завершена");
       },
-      async (card, rating) => {
-        await this.handleCardReviewed(card, rating);
-      }
-    ).open();
+      onCardReviewed: (card, rating, info) => this.handleCardReviewed(card, rating, info),
+      onCardBuried: (card) => this.buryCard(card),
+      shuffleMcqOptions: this.settings.shuffleMcqOptions
+    }).open();
   }
-  private async handleCardReviewed(card: Flashcard, rating: Rating): Promise<void> {
+
+  /**
+   * Запоминает изменяемые при повторении данные плагина и возвращает функцию,
+   * которая их восстанавливает (для отмены оценки или откладывания).
+   */
+  private snapshotReviewData(): UndoFn {
+    const saved = JSON.stringify({
+      focusQueue: this.settings.focusQueue,
+      reviewCounts: this.settings.reviewCounts,
+      buriedCards: this.settings.buriedCards
+    });
+    return async () => {
+      const data = JSON.parse(saved);
+      this.settings.focusQueue = data.focusQueue;
+      this.settings.reviewCounts = data.reviewCounts;
+      this.settings.buriedCards = data.buriedCards;
+      await this.saveSettings();
+    };
+  }
+
+  /** Откладывает карточку до конца сегодняшнего дня. */
+  private async buryCard(card: Flashcard): Promise<UndoFn> {
+    const undo = this.snapshotReviewData();
+    this.settings.buriedCards[card.id] = todayStr();
+    await this.saveSettings();
+    return undo;
+  }
+
+  private async handleCardReviewed(card: Flashcard, rating: Rating, info: ReviewInfo): Promise<UndoFn> {
+    const undo = this.snapshotReviewData();
     const today = todayStr();
     this.settings.reviewCounts[today] = (this.settings.reviewCounts[today] || 0) + 1;
     if (card.siblingId) {
@@ -256,6 +290,7 @@ export default class McqSpacedRepetitionPlugin extends Plugin {
       }
     }
     await this.saveSettings();
+    return undo;
   }
   async showFocusQueue(): Promise<void> {
     const { workspace } = this.app;
@@ -306,22 +341,26 @@ export default class McqSpacedRepetitionPlugin extends Plugin {
       new Notice("Не удалось найти карточки в файлах! Возможно, файлы были изменены.");
       return;
     }
-    new ReviewModal(
-      this.app,
-      cardsToReview,
-      () => {
+    const queue = buildReviewQueue(cardsToReview, this.settings.shuffleQueue);
+    new ReviewModal(this.app, queue, {
+      onComplete: () => {
         new Notice("Повторение Focus Queue завершено");
       },
-      async (card, rating) => {
+      onCardReviewed: async (card, rating, info) => {
+        const undo = this.snapshotReviewData();
         const today = todayStr();
         this.settings.reviewCounts[today] = (this.settings.reviewCounts[today] || 0) + 1;
-        if (rating === "Good" || rating === "Easy") {
+        // Верный ответ после ошибки в этой же сессии не снимает карточку с очереди ошибок.
+        if ((rating === "Good" || rating === "Easy") && !info.relearnStep) {
           this.settings.focusQueue = this.settings.focusQueue.filter(
             (item) => !(item.question === card.question && item.filePath === card.file.path && !!item.isReverseDirection === !!card.isReverseDirection)
           );
         }
         await this.saveSettings();
-      }
-    ).open();
+        return undo;
+      },
+      onCardBuried: (card) => this.buryCard(card),
+      shuffleMcqOptions: this.settings.shuffleMcqOptions
+    }).open();
   }
 }

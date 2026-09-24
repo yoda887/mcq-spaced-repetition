@@ -64,6 +64,22 @@ export interface PluginSettings {
   reviewCounts: Record<string, number>;
   /** id карточки -> дата, до конца которой она скрыта (парные карточки). */
   buriedCards: Record<string, string>;
+  /** Перемешивать порядок карточек в сессии. */
+  shuffleQueue: boolean;
+  /** Перемешивать варианты ответа в тестах :::test. */
+  shuffleMcqOptions: boolean;
   /** Устаревший формат журнала, мигрируется в reviewCounts при загрузке. */
   reviewLog?: string[];
 }
+
+/** Дополнительные сведения об оценке, передаваемые плагину. */
+export interface ReviewInfo {
+  /**
+   * Повтор внутри сессии после ответа Again: расписание в заметке не меняется,
+   * карточка просто должна быть отвечена верно до конца сессии.
+   */
+  relearnStep: boolean;
+}
+
+/** Функция, откатывающая изменения плагина (очередь ошибок, счётчики и т.п.). */
+export type UndoFn = () => Promise<void>;
