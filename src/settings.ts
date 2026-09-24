@@ -82,6 +82,6 @@ export class McqSettingTab extends PluginSettingTab {
 
     new Setting(containerEl)
       .setName("Горячие клавиши в окне повторения")
-      .setDesc("1–4 — Again / Hard / Good / Easy, Enter — проверить или рекомендованная оценка, U — отменить, S — пропустить, B — отложить до завтра.");
+      .setDesc("1–4 — Again / Hard / Good / Easy, в тестах 1–9 — выбор варианта, Enter — проверить или рекомендованная оценка, U — отменить, S — пропустить, B — отложить до завтра.");
   }
 }

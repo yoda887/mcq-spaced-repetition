@@ -117,7 +117,8 @@ export class ReviewModal extends Modal {
     this.scope.register([], "4", (evt) => {
       return this.handleKeyPress("4", evt);
     });
-    for (const key of [...UNDO_KEYS, ...SKIP_KEYS, ...BURY_KEYS]) {
+    // 5–9 — выбор вариантов теста с пятого по девятый.
+    for (const key of ["5", "6", "7", "8", "9", ...UNDO_KEYS, ...SKIP_KEYS, ...BURY_KEYS]) {
       this.scope.register([], key, (evt) => this.handleKeyPress(key, evt));
     }
     this.renderCurrentCard();
@@ -157,7 +158,7 @@ export class ReviewModal extends Modal {
     const showAnswerBtn = this.contentEl.querySelector<HTMLElement>(".mcq-show-answer-link");
     const isAnswerShown = !showAnswerBtn || showAnswerBtn.style.display === "none";
     if (card.type === "mcq") {
-      if (key === "1" || key === "2" || key === "3" || key === "4") {
+      if (/^[1-9]$/.test(key)) {
         const idx = parseInt(key) - 1;
         const options = this.contentEl.querySelectorAll(".mcq-option-row");
         if (options && options[idx]) {
@@ -543,6 +544,8 @@ export class ReviewModal extends Modal {
       if (rating === "Again") {
         // Шаг повторного изучения: карточка вернётся в конце этой сессии.
         this.relearning.add(card.id);
+        // При повторе теста варианты перемешиваются заново, чтобы не запоминать позицию.
+        this.mcqOrder.delete(card.id);
         this.flashcards.push(card);
       } else {
         this.relearning.delete(card.id);
@@ -578,11 +581,12 @@ export class ReviewModal extends Modal {
       inputs.forEach((i) => i.disabled = true);
       const timer = window.setTimeout(() => {
         if (this.isClosed) return;
-        this.processAnswer(card, isCorrect ? "Good" : "Hard");
+        // Ошибка в тесте — Again: карточка вернётся в конце сессии.
+        this.processAnswer(card, isCorrect ? "Good" : "Again");
       }, 1500);
       this.timeouts.push(timer);
     };
-    this.getOptionOrder(card).forEach((index) => {
+    this.getOptionOrder(card).forEach((index, position) => {
       const option = card.options[index];
       const optionRow = optionsContainer.createDiv({ cls: "mcq-option-row" });
       if (multi) optionRow.addClass("mcq-option-multi");
@@ -597,12 +601,15 @@ export class ReviewModal extends Modal {
         }
       });
       inputs[index] = input;
-      optionRow.createEl("label", {
-        text: option.text,
+      const label = optionRow.createEl("label", {
         attr: {
           for: inputId
         }
       });
+      if (position < 9) {
+        label.createSpan({ text: String(position + 1), cls: "mcq-option-key", attr: { "aria-hidden": "true" } });
+      }
+      label.appendText(option.text);
       input.addEventListener("change", () => {
         if (multi) {
           optionRow.toggleClass("is-selected", input.checked);

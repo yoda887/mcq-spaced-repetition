@@ -308,6 +308,21 @@
     margin: -4px 0 10px;
 }
 
+/* Номер клавиши перед вариантом теста */
+.mcq-option-key {
+    display: inline-block;
+    min-width: 1.4em;
+    margin-right: 8px;
+    padding: 0 4px;
+    border: 1px solid var(--background-modifier-border);
+    border-radius: 4px;
+    font-size: 0.75em;
+    font-weight: 600;
+    text-align: center;
+    color: var(--text-faint);
+    vertical-align: 1px;
+}
+
 .mcq-option-row label {
     cursor: pointer;
     width: 100%;
