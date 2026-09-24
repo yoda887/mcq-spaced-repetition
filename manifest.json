@@ -1,0 +1,10 @@
+{
+  "id": "mcq-spaced-repetition",
+  "name": "MCQ Spaced Repetition",
+  "version": "1.1.0",
+  "minAppVersion": "1.0.0",
+  "description": "Spaced repetition plugin focused on multiple choice questions (MCQ).",
+  "author": "Antigravity",
+  "authorUrl": "",
+  "isDesktopOnly": false
+}

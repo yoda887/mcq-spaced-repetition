@@ -1,0 +1,1041 @@
+.mcq-controls-container {
+    min-height: 55px;
+    display: flex;
+    flex-wrap: wrap;
+    align-content: center;
+    align-items: center;
+    justify-content: flex-start;
+    margin-top: 15px;
+    width: 100%;
+}
+
+.mcq-show-answer-link {
+    display: inline-block;
+    margin: 0 !important;
+    color: var(--text-accent) !important;
+    cursor: pointer;
+    font-weight: 600;
+    font-size: 1.1em;
+    text-decoration: none !important;
+}
+
+.mcq-show-answer-link:hover {
+    text-decoration: underline !important;
+    color: var(--text-accent-hover) !important;
+}
+
+.mcq-question-card {
+    background-color: var(--background-primary);
+    border: none;
+    border-radius: 8px;
+    padding: 18px 22px;
+    margin-bottom: 20px;
+    box-shadow: none;
+    font-size: 1.15em;
+    line-height: 1.5;
+}
+
+.mcq-answer-card {
+    background-color: var(--background-secondary);
+    border: 1px solid var(--background-modifier-border);
+    border-left: 4px solid var(--color-green, var(--text-success, #3ba55c)); /* Зеленая акцентная полоса для правильного ответа */
+    border-radius: 8px;
+    padding: 18px 22px;
+    margin-top: 20px;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.03);
+    font-size: 1.1em;
+    line-height: 1.5;
+    animation: mcqSlideDown 0.3s ease-out;
+}
+
+@keyframes mcqSlideDown {
+    from {
+        opacity: 0;
+        transform: translateY(-8px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.mcq-grading-buttons {
+    display: flex;
+    gap: 12px;
+    margin: 0 !important;
+    width: 100%;
+}
+
+.mcq-grading-buttons button {
+    flex: 1;
+    padding: 12px;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    font-weight: 600;
+    color: var(--text-normal);
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.02);
+    transition: transform 0.2s ease, box-shadow 0.2s ease, background-color 0.2s ease;
+}
+
+.mcq-grading-buttons button:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.06);
+}
+
+.mcq-btn-again {
+    background-color: color-mix(in srgb, var(--color-red, var(--text-error, #e34b4b)) 10%, transparent) !important;
+    border: 1px solid color-mix(in srgb, var(--color-red, var(--text-error, #e34b4b)) 40%, transparent) !important;
+    color: var(--color-red, var(--text-error, #e34b4b)) !important;
+}
+.mcq-btn-again:hover { background-color: color-mix(in srgb, var(--color-red, var(--text-error, #e34b4b)) 20%, transparent) !important; }
+
+.mcq-btn-hard {
+    background-color: color-mix(in srgb, var(--color-orange, #e0a100) 10%, transparent) !important;
+    border: 1px solid color-mix(in srgb, var(--color-orange, #e0a100) 40%, transparent) !important;
+    color: var(--color-orange, #e0a100) !important;
+}
+.mcq-btn-hard:hover { background-color: color-mix(in srgb, var(--color-orange, #e0a100) 20%, transparent) !important; }
+
+.mcq-btn-good {
+    background-color: color-mix(in srgb, var(--color-green, var(--text-success, #3ba55c)) 10%, transparent) !important;
+    border: 1px solid color-mix(in srgb, var(--color-green, var(--text-success, #3ba55c)) 40%, transparent) !important;
+    color: var(--color-green, var(--text-success, #3ba55c)) !important;
+}
+.mcq-btn-good:hover { background-color: color-mix(in srgb, var(--color-green, var(--text-success, #3ba55c)) 20%, transparent) !important; }
+
+.mcq-btn-easy {
+    background-color: color-mix(in srgb, var(--color-blue, #4682b4) 10%, transparent) !important;
+    border: 1px solid color-mix(in srgb, var(--color-blue, #4682b4) 40%, transparent) !important;
+    color: var(--color-blue, #4682b4) !important;
+}
+.mcq-btn-easy:hover { background-color: color-mix(in srgb, var(--color-blue, #4682b4) 20%, transparent) !important; }
+
+.mcq-header-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    margin-bottom: 25px;
+    border-bottom: 1px solid var(--background-modifier-border);
+    padding-bottom: 12px;
+    gap: 6px;
+}
+
+.mcq-title-row {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    width: 100%;
+    position: relative;
+    gap: 8px;
+}
+
+.mcq-header {
+    margin: 0 !important;
+    font-size: 1.1em;
+    font-weight: 600;
+    text-align: center;
+}
+
+.mcq-file-link-container {
+    margin-top: 2px;
+    text-align: center;
+}
+
+.mcq-file-link {
+    font-size: 0.85em;
+    color: var(--text-muted) !important;
+    text-decoration: none !important;
+    font-weight: 500;
+    text-align: center;
+}
+
+.mcq-file-link:hover {
+    color: var(--text-accent) !important;
+    text-decoration: underline !important;
+}
+
+.mcq-edit-btn {
+    background: transparent !important;
+    border: none !important;
+    padding: 6px !important;
+    color: var(--icon-color, var(--text-muted));
+    cursor: pointer;
+    border-radius: 4px !important;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 0.7;
+    transition: opacity 0.2s, background-color 0.2s;
+    box-shadow: none !important;
+}
+
+.mcq-edit-btn:hover {
+    color: var(--icon-color-hover, var(--text-normal));
+    background-color: var(--background-modifier-hover) !important;
+    opacity: 1;
+}
+
+.mcq-option-row {
+    margin-bottom: 12px;
+    padding: 12px 18px;
+    border-radius: 8px;
+    border: 1px solid var(--background-modifier-border);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    background-color: var(--background-primary);
+    transition: background-color 0.2s ease, border-color 0.2s ease, transform 0.2s ease;
+}
+
+.mcq-option-row:hover {
+    background-color: var(--background-primary-alt);
+    border-color: var(--text-accent);
+}
+
+.mcq-option-row input[type="radio"] {
+    display: none; /* Скрываем стандартный radio button */
+}
+
+/* Красивая кастомная радио-кнопка */
+.mcq-option-row::before {
+    content: "";
+    width: 18px;
+    height: 18px;
+    border: 2px solid var(--background-modifier-border);
+    border-radius: 50%;
+    margin-right: 12px;
+    display: inline-block;
+    flex-shrink: 0;
+    transition: border-color 0.2s, background-color 0.2s, box-shadow 0.2s;
+}
+
+.mcq-option-row:hover::before {
+    border-color: var(--text-accent);
+}
+
+.mcq-option-row label {
+    cursor: pointer;
+    width: 100%;
+    font-weight: 500;
+}
+
+.mcq-correct {
+    background-color: color-mix(in srgb, var(--color-green, var(--text-success, #3ba55c)) 8%, transparent) !important;
+    border-color: var(--color-green, var(--text-success, #3ba55c)) !important;
+}
+
+.mcq-correct::before,
+.mcq-incorrect::before {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 12px;
+    font-weight: 700;
+    line-height: 1;
+    color: var(--background-primary);
+    box-shadow: none !important;
+}
+
+.mcq-correct::before {
+    content: "\2713";
+    border-color: var(--color-green, var(--text-success, #3ba55c)) !important;
+    background-color: var(--color-green, var(--text-success, #3ba55c)) !important;
+}
+
+.mcq-incorrect {
+    background-color: color-mix(in srgb, var(--color-red, var(--text-error, #e34b4b)) 8%, transparent) !important;
+    border-color: var(--color-red, var(--text-error, #e34b4b)) !important;
+}
+
+.mcq-incorrect::before {
+    content: "\2715";
+    border-color: var(--color-red, var(--text-error, #e34b4b)) !important;
+    background-color: var(--color-red, var(--text-error, #e34b4b)) !important;
+}
+
+/* Sidebar Navigation Tabs */
+.mcq-sidebar-nav {
+    display: flex;
+    justify-content: center; /* Центрирование вкладок */
+    gap: 8px;
+    border-bottom: 1px solid var(--background-modifier-border);
+    margin-bottom: 10px;
+    width: 100%;
+    padding: 4px;
+    background: transparent;
+}
+
+.mcq-nav-btn {
+    background: transparent !important;
+    background-color: transparent !important;
+    border: none !important;
+    padding: 4px;
+    color: var(--icon-color, var(--text-muted));
+    opacity: 0.6;
+    cursor: pointer;
+    transition: opacity 0.2s, background-color 0.2s, color 0.2s;
+    border-radius: 4px !important;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: none !important;
+}
+
+.mcq-nav-btn:hover {
+    color: var(--icon-color-hover, var(--text-normal));
+    background-color: var(--background-modifier-hover) !important;
+    opacity: 1;
+}
+
+.mcq-nav-btn.active {
+    color: var(--text-accent) !important;
+    opacity: 1;
+    background: transparent !important;
+    background-color: transparent !important;
+}
+
+.mcq-nav-btn svg {
+    width: 18px;
+    height: 18px;
+}
+
+/* Focus Queue Styles */
+.mcq-focus-view-container {
+    padding: 0 10px 10px 10px !important;
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    overflow-y: auto;
+}
+
+.mcq-focus-clear-btn {
+    font-size: 0.8em;
+    padding: 4px 8px;
+    background-color: rgba(255, 99, 71, 0.1);
+    color: var(--text-error);
+    border: 1px solid var(--text-error);
+    border-radius: 4px;
+    cursor: pointer;
+}
+.mcq-focus-clear-btn:hover {
+    background-color: rgba(255, 99, 71, 0.2);
+}
+
+.mcq-focus-desc {
+    color: var(--text-muted);
+    font-size: 0.9em;
+    margin-bottom: 15px;
+}
+
+.mcq-focus-empty {
+    text-align: center;
+    padding: 30px;
+    color: var(--text-muted);
+    border: 1px dashed var(--background-modifier-border);
+    border-radius: 6px;
+}
+
+.mcq-focus-actions {
+    margin-bottom: 20px;
+}
+
+.mcq-focus-start-btn {
+    width: 100%;
+    padding: 10px;
+    background-color: var(--interactive-accent);
+    color: var(--text-on-accent);
+    border: none;
+    border-radius: 6px;
+    font-weight: bold;
+    cursor: pointer;
+}
+.mcq-focus-start-btn:hover {
+    background-color: var(--interactive-accent-hover);
+}
+
+.mcq-focus-list {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    max-height: 400px;
+    overflow-y: auto;
+    padding-right: 5px;
+}
+
+.mcq-focus-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    padding: 12px;
+    border: 1px solid var(--background-modifier-border);
+    border-radius: 6px;
+    background-color: var(--background-primary-alt);
+}
+
+.mcq-focus-item-info {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.mcq-focus-item-title {
+    font-weight: bold;
+    color: var(--text-accent);
+    cursor: pointer;
+    text-decoration: underline;
+}
+.mcq-focus-item-title:hover {
+    color: var(--text-accent-hover);
+}
+
+.mcq-focus-item-q {
+    font-size: 0.9em;
+    color: var(--text-normal);
+}
+
+.mcq-focus-item-a {
+    font-size: 0.85em;
+    color: var(--text-muted);
+    font-style: italic;
+}
+
+.mcq-focus-resolve-btn {
+    font-size: 0.8em;
+    padding: 4px 8px;
+    background-color: rgba(60, 179, 113, 0.1);
+    color: var(--text-success);
+    border: 1px solid var(--text-success);
+    border-radius: 4px;
+    cursor: pointer;
+    white-space: nowrap;
+}
+.mcq-focus-resolve-btn:hover {
+    background-color: rgba(60, 179, 113, 0.2);
+}
+
+/* Edit Mode styling */
+.mcq-edit-title {
+    font-size: 1.1em;
+    font-weight: 600;
+    margin-bottom: 12px;
+}
+
+.mcq-edit-textarea {
+    width: 100%;
+    background-color: var(--background-secondary);
+    color: var(--text-normal);
+    border: 1px solid var(--background-modifier-border);
+    border-radius: 6px;
+    padding: 10px;
+    font-family: var(--font-monospace);
+    font-size: 0.95em;
+    resize: vertical;
+    margin-bottom: 15px;
+}
+
+.mcq-edit-actions {
+    display: flex;
+    gap: 10px;
+}
+
+.mcq-edit-actions button {
+    padding: 8px 16px;
+    border: none;
+    border-radius: 4px;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+.mcq-edit-save-btn {
+    background-color: var(--interactive-accent);
+    color: var(--text-on-accent);
+}
+.mcq-edit-save-btn:hover { background-color: var(--interactive-accent-hover); }
+
+.mcq-edit-cancel-btn {
+    background-color: var(--background-secondary-alt);
+    color: var(--text-normal);
+}
+.mcq-edit-cancel-btn:hover { background-color: var(--background-modifier-hover); }
+
+/* Decks Tab styling */
+.mcq-decks-container {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-top: 10px;
+}
+
+.mcq-decks-empty {
+    text-align: center;
+    color: var(--text-muted);
+    padding: 20px;
+    border: 1px dashed var(--background-modifier-border);
+    border-radius: 6px;
+    font-size: 0.9em;
+}
+
+.mcq-deck-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px 12px;
+    background-color: var(--background-primary-alt);
+    border: 1px solid var(--background-modifier-border);
+    border-radius: 6px;
+}
+
+.mcq-deck-info {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    flex: 1;
+}
+
+.mcq-deck-tag {
+    font-weight: 600;
+    color: var(--text-accent);
+    font-size: 0.95em;
+}
+
+.mcq-deck-count {
+    font-size: 0.78em;
+    color: var(--text-muted);
+}
+
+.mcq-deck-play-btn {
+    background: transparent !important;
+    border: none !important;
+    padding: 6px !important;
+    color: var(--text-success);
+    cursor: pointer;
+    border-radius: 4px !important;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 0.8;
+    transition: background-color 0.2s, opacity 0.2s;
+    box-shadow: none !important;
+}
+
+.mcq-deck-play-btn:hover:not(.disabled) {
+    background-color: rgba(60, 179, 113, 0.15) !important;
+    opacity: 1;
+}
+
+.mcq-deck-play-btn.disabled {
+    color: var(--text-muted) !important;
+    opacity: 0.3 !important;
+    cursor: not-allowed;
+}
+
+.mcq-deck-play-btn svg {
+    width: 18px;
+    height: 18px;
+}
+
+/* Skills Tree Styles */
+.mcq-loading-text {
+    text-align: center;
+    color: var(--text-muted);
+    font-style: italic;
+    padding: 20px;
+}
+
+.mcq-skills-container {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    margin-top: 10px;
+}
+
+.mcq-skills-empty {
+    text-align: center;
+    color: var(--text-muted);
+    padding: 20px;
+    border: 1px dashed var(--background-modifier-border);
+    border-radius: 6px;
+    font-size: 0.9em;
+}
+
+.mcq-skill-row {
+    padding: 10px 12px;
+    background-color: var(--background-primary-alt);
+    border: 1px solid var(--background-modifier-border);
+    border-radius: 6px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.mcq-skill-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.mcq-skill-tag {
+    font-weight: 600;
+    color: var(--text-normal);
+    font-size: 0.9em;
+}
+
+.mcq-skill-level {
+    font-size: 0.8em;
+    font-weight: bold;
+    padding: 2px 6px;
+    background-color: rgba(var(--text-accent), 0.1);
+    color: var(--text-accent);
+    border-radius: 10px;
+}
+
+.mcq-skill-bar {
+    width: 100%;
+    height: 6px;
+    background-color: var(--background-secondary-alt);
+    border-radius: 3px;
+    overflow: hidden;
+}
+
+.mcq-skill-progress {
+    height: 100%;
+    background-color: var(--text-accent);
+    border-radius: 3px;
+    transition: width 0.3s ease;
+}
+
+.mcq-skill-footer {
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.75em;
+    color: var(--text-muted);
+}
+
+/* Statistics Tab Styles */
+.mcq-streak-container {
+    text-align: center;
+    padding: 15px;
+    background-color: var(--background-primary-alt);
+    border: 1px solid var(--background-modifier-border);
+    border-radius: 8px;
+    margin-bottom: 15px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+}
+
+.mcq-streak-number {
+    font-size: 2.2em;
+    font-weight: bold;
+}
+
+.mcq-streak-label {
+    font-size: 0.8em;
+    color: var(--text-muted);
+    font-weight: 600;
+}
+
+.mcq-card-breakdown {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 8px;
+    margin-bottom: 20px;
+}
+
+.mcq-stat-block {
+    padding: 10px;
+    border-radius: 6px;
+    text-align: center;
+    border: 1px solid var(--background-modifier-border);
+    background-color: var(--background-primary-alt);
+}
+
+.mcq-stat-val {
+    font-size: 1.4em;
+    font-weight: bold;
+}
+
+.mcq-stat-lbl {
+    font-size: 0.75em;
+    color: var(--text-muted);
+}
+
+.mcq-stat-block.all { border-left: 4px solid var(--text-normal); }
+.mcq-stat-block.new { border-left: 4px solid var(--text-accent); }
+.mcq-stat-block.learning { border-left: 4px solid #ff6347; }
+.mcq-stat-block.mature { border-left: 4px solid var(--color-green, var(--text-success, #3ba55c)); }
+
+.mcq-stats-subtitle {
+    font-size: 1em;
+    margin: 15px 0 10px 0;
+    font-weight: 600;
+    color: var(--text-normal);
+}
+
+/* Heatmap Grid */
+.mcq-heatmap-container {
+    display: flex;
+    gap: 3px;
+    background-color: var(--background-primary-alt);
+    border: 1px solid var(--background-modifier-border);
+    padding: 10px;
+    border-radius: 6px;
+    justify-content: center;
+    overflow-x: auto;
+}
+
+.mcq-heatmap-column {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+}
+
+.mcq-heatmap-cell {
+    width: 10px;
+    height: 10px;
+    border-radius: 2px;
+    transition: background-color 0.2s;
+}
+
+.mcq-heatmap-cell.lvl-0 { background-color: var(--background-secondary-alt); }
+.mcq-heatmap-cell.lvl-1 { background-color: rgba(60, 179, 113, 0.25); }
+.mcq-heatmap-cell.lvl-2 { background-color: rgba(60, 179, 113, 0.5); }
+.mcq-heatmap-cell.lvl-3 { background-color: rgba(60, 179, 113, 0.75); }
+.mcq-heatmap-cell.lvl-4 { background-color: rgba(60, 179, 113, 1); }
+
+.mcq-clear-log-container {
+    margin-top: 20px;
+    display: flex;
+    justify-content: center;
+}
+
+.mcq-clear-log-btn {
+    font-size: 0.8em;
+    padding: 6px 12px;
+    background: none;
+    border: 1px solid var(--text-error);
+    color: var(--text-error);
+    border-radius: 4px;
+    cursor: pointer;
+    transition: background-color 0.2s;
+}
+.mcq-clear-log-btn:hover {
+    background-color: rgba(255, 99, 71, 0.1);
+}
+
+/* Cloze Gap styles */
+.mcq-cloze-gap {
+    background-color: var(--background-secondary-alt);
+    color: var(--text-accent) !important;
+    padding: 1px 6px;
+    border-radius: 4px;
+    font-weight: 600;
+}
+
+.mcq-cloze-revealed {
+    background-color: color-mix(in srgb, var(--color-green, var(--text-success, #3ba55c)) 10%, transparent);
+    color: var(--color-green, var(--text-success, #3ba55c)) !important;
+    padding: 1px 6px;
+    border-radius: 4px;
+    font-weight: 600;
+    border: 1px solid var(--color-green, var(--text-success, #3ba55c));
+    display: inline-block;
+    animation: mcqPopIn 0.2s ease-out;
+}
+
+@keyframes mcqPopIn {
+    from {
+        transform: scale(0.95);
+        opacity: 0.8;
+    }
+    to {
+        transform: scale(1);
+        opacity: 1;
+    }
+}
+
+/* Cloze Type-In Input styles ({{type:...}}) */
+.mcq-question-card input.mcq-cloze-input,
+input.mcq-cloze-input {
+    display: inline-block !important;
+    vertical-align: baseline !important;
+    box-sizing: content-box !important;
+    width: auto;
+    min-width: 40px;
+    max-width: 480px;
+    height: auto !important;
+    padding: 2px 8px !important;
+    margin: 0 2px !important;
+    font: inherit !important;
+    font-weight: 600 !important;
+    line-height: normal !important;
+    color: var(--text-normal) !important;
+    background-color: var(--background-secondary-alt) !important;
+    border: none !important;
+    border-bottom: 2px solid var(--interactive-accent) !important;
+    border-radius: 4px 4px 0 0 !important;
+    box-shadow: none !important;
+    text-align: center !important;
+    transition: background-color 0.2s ease, border-color 0.2s ease;
+}
+
+.mcq-question-card input.mcq-cloze-input:focus,
+input.mcq-cloze-input:focus {
+    outline: none !important;
+    box-shadow: none !important;
+    background-color: var(--background-modifier-hover) !important;
+    border-bottom-color: var(--interactive-accent-hover) !important;
+}
+
+.mcq-question-card input.mcq-cloze-input:disabled,
+input.mcq-cloze-input:disabled {
+    cursor: default;
+    opacity: 1 !important;
+}
+
+.mcq-cloze-input.mcq-cloze-correct {
+    background-color: color-mix(in srgb, var(--color-green, var(--text-success, #3ba55c)) 12%, transparent) !important;
+    border-bottom-color: var(--color-green, var(--text-success, #3ba55c)) !important;
+    color: var(--color-green, var(--text-success, #3ba55c)) !important;
+    font-weight: 700;
+    font-family: var(--font-monospace);
+}
+
+.mcq-cloze-input.mcq-cloze-incorrect {
+    background-color: color-mix(in srgb, var(--color-red, var(--text-error, #e34b4b)) 12%, transparent) !important;
+    border-bottom-color: var(--color-red, var(--text-error, #e34b4b)) !important;
+    color: var(--color-red, var(--text-error, #e34b4b)) !important;
+    font-weight: 700;
+    font-family: var(--font-monospace);
+    text-decoration: line-through;
+    text-decoration-color: color-mix(in srgb, var(--color-red, var(--text-error, #e34b4b)) 50%, transparent);
+}
+
+.mcq-cloze-correct-answer {
+    display: inline-block;
+    margin-left: 4px;
+    padding: 1px 8px;
+    font-size: 0.85em;
+    font-style: italic;
+    font-weight: 600;
+    color: var(--color-green, var(--text-success, #3ba55c));
+    background-color: color-mix(in srgb, var(--color-green, var(--text-success, #3ba55c)) 10%, transparent);
+    border-radius: 4px;
+}
+
+.mcq-cloze-check-btn {
+    display: inline-block;
+    padding: 10px 24px;
+    font-weight: 600;
+    font-size: 1em;
+    color: var(--text-on-accent);
+    background-color: var(--interactive-accent);
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.02);
+    transition: background-color 0.2s ease, transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.mcq-cloze-check-btn:hover {
+    background-color: var(--interactive-accent-hover);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.06);
+}
+
+.mcq-grading-buttons button.mcq-suggested {
+    outline: 2px solid var(--text-normal);
+    outline-offset: 2px;
+}
+
+/* Organically adjusted modal dimensions based on question type */
+.mcq-review-modal {
+    height: auto !important;
+    max-height: 85vh !important;
+}
+
+.mcq-review-modal.mcq-modal-standard {
+    width: min(720px, 90vw) !important;
+    min-height: 250px !important;
+}
+
+.mcq-review-modal.mcq-modal-mcq {
+    width: min(800px, 92vw) !important;
+    min-height: auto !important;
+}
+
+.mcq-review-modal.mcq-modal-multiline {
+    width: min(960px, 94vw) !important;
+    min-height: 380px !important;
+}
+
+.mcq-review-modal .modal-content {
+    display: block !important;
+    height: auto !important;
+    min-height: auto !important;
+}
+
+.mcq-review-modal .mcq-card-body {
+    display: block !important;
+    height: auto !important;
+    min-height: auto !important;
+    flex: none !important;
+}
+/* Live Preview: hide {{type:...}} markers, show only the answer */
+.mcq-live-preview-gap {
+    background-color: var(--text-selection, rgba(120, 170, 255, 0.12));
+    border-radius: 2px;
+}
+
+/* Reading View: card wrapper for :::block / :::test fences */
+.mcq-reading-card {
+    border: 1px solid var(--background-modifier-border);
+    border-left: 3px solid var(--interactive-accent);
+    border-radius: 6px;
+    padding: 0.7em 1em;
+    margin: 1em 0;
+    background: var(--background-secondary);
+}
+
+.mcq-reading-card-label {
+    font-size: 0.78em;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.02em;
+    color: var(--text-muted);
+    margin-bottom: 0.5em;
+    user-select: none;
+}
+
+.mcq-reading-card-label:hover {
+    color: var(--text-accent);
+}
+
+.mcq-reading-card > p:last-child {
+    margin-bottom: 0;
+}
+
+.mcq-reading-gap {
+    display: inline-block;
+    min-width: 2.2em;
+    padding: 0 0.35em;
+    border-bottom: 1px dashed var(--text-faint);
+    color: var(--text-faint);
+    cursor: pointer;
+    border-radius: 2px;
+    text-align: center;
+    transition: background-color 0.15s ease, color 0.15s ease;
+}
+
+.mcq-reading-gap:hover {
+    background-color: var(--background-modifier-hover);
+}
+
+.mcq-reading-gap-revealed {
+    border-bottom-style: solid;
+    border-bottom-color: var(--text-accent);
+    color: var(--text-normal);
+    font-weight: 500;
+    background-color: var(--text-selection, rgba(120, 170, 255, 0.12));
+}
+
+/* Review modal: word-level diff feedback for wrong multi-word gap answers */
+.mcq-word-diff-field {
+    display: inline-block;
+    padding: 1px 6px;
+    border-bottom: 1px solid var(--background-modifier-border);
+    border-radius: 3px;
+    background: transparent;
+}
+
+/* Результат проверки поля: верно / почти (опечатка) / неверно */
+.mcq-word-diff-field.mcq-result-correct {
+    font-weight: 600;
+    color: var(--color-green, var(--text-success, #3ba55c));
+    border-bottom-color: var(--color-green, var(--text-success, #3ba55c));
+    background: color-mix(in srgb, var(--color-green, var(--text-success, #3ba55c)) 10%, transparent);
+}
+
+.mcq-word-diff-field.mcq-result-almost {
+    border-bottom: 2px solid var(--color-orange, #e0a100);
+    background: color-mix(in srgb, var(--color-orange, #e0a100) 10%, transparent);
+}
+
+.mcq-word-diff-field.mcq-result-wrong {
+    border-bottom: 2px solid var(--color-red, var(--text-error, #e34b4b));
+    background: color-mix(in srgb, var(--color-red, var(--text-error, #e34b4b)) 6%, transparent);
+}
+
+.mcq-word-diff-alts {
+    margin-left: 4px;
+    font-size: 0.85em;
+    color: var(--text-muted);
+}
+
+.mcq-word-correct {
+    color: var(--text-normal);
+}
+
+.mcq-word-wrong {
+    color: var(--color-red, var(--text-error, #e34b4b));
+    text-decoration: line-through;
+}
+
+.mcq-word-missing {
+    color: var(--color-green, var(--text-success, #3ba55c));
+    text-decoration: underline;
+    text-decoration-style: dotted;
+}
+
+/* Буквы, которыми отличаются похожие слова */
+.mcq-char-wrong {
+    background: color-mix(in srgb, var(--color-red, var(--text-error, #e34b4b)) 25%, transparent);
+    border-radius: 2px;
+}
+
+.mcq-char-missing {
+    background: color-mix(in srgb, var(--color-green, var(--text-success, #3ba55c)) 25%, transparent);
+    border-radius: 2px;
+    font-weight: 700;
+}
+
+.mcq-word-empty {
+    color: var(--text-faint);
+    font-style: italic;
+    text-decoration: line-through;
+}
+
+.mcq-check-summary {
+    width: 100%;
+    text-align: center;
+    font-size: 0.9em;
+    font-weight: 600;
+    margin-bottom: 10px;
+}
+
+.mcq-check-summary.is-correct { color: var(--color-green, var(--text-success, #3ba55c)); }
+.mcq-check-summary.is-partial { color: var(--color-orange, #e0a100); }
+.mcq-check-summary.is-wrong { color: var(--color-red, var(--text-error, #e34b4b)); }
+
+.mcq-key-hint {
+    width: 100%;
+    text-align: center;
+    font-size: 0.75em;
+    color: var(--text-faint);
+    margin-top: 8px;
+}
+
+.mcq-cloze-correct-mark {
+    color: var(--color-green, var(--text-success, #3ba55c));
+    font-weight: 700;
+    margin-left: 4px;
+}
+
+/* Live Preview: gray out our own syntax markers (:::block, :::, {{type:, }}) */
+.mcq-syntax-marker {
+    color: var(--text-faint) !important;
+    opacity: 0.7;
+}
